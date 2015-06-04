@@ -4,7 +4,7 @@ The Tintri Automation Toolkit is a set of PowerShell cmdlets that help automate 
 
 ### Getting Started
 
-* Introductory [blog post](http://www.tintri.com/blog/2014/08/introducing-tintri-automation-powershell-toolkit) by John Phillips on the Tintri blog, with a video demonstrating the key features.
+* Introductory [blog post](http://www.tintri.com/blog/2014/08/introducing-tintri-automation-powershell) on the Tintri blog, with a video demonstrating the key features.
 * Luc Dekens' (vExpert, PowerShell MVP and co-author of PowerCLI reference) excellent two-part series - [Part 1](http://www.lucd.info/2014/08/14/tintri-automation-toolkit-basics-part-1/) and [Part 2](http://www.lucd.info/2014/08/20/tintri-automation-toolkit-vm-protection-and-reporting-part-2/)
 * Rick Ehrhart's [blog](https://tintriapiui.wordpress.com/tag/powershell/) 
 * Quick start guide from Tintri's [support portal](https://support.tintri.com)
