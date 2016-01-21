@@ -3,5 +3,3 @@
 gold   1000    1500
 silver 500     1000
 bronze 100     500
-VDI	1200	1500
-Dev	400	800
