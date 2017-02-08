@@ -21,7 +21,7 @@
 # THE SOFTWARE.
 
 #------------------------------------------------------------------------------
-# Deletes Snapshots after a specified Date, Time, and midday
+# Deletes Snapshots before a specified Date, Time, and midday
 #------------------------------------------------------------------------------
 
 param([Parameter(Mandatory=$true)]
