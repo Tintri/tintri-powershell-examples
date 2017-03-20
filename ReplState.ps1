@@ -46,6 +46,9 @@ Param([parameter(Mandatory=$false)]
       [switch]$All,
 
       [parameter(Mandatory=$false)]
+      [switch]$NotConfigured,
+
+      [parameter(Mandatory=$false)]
       [switch]$Help
      )
 
@@ -130,10 +133,10 @@ Function Write-Name-State {
 
 
 Function Write-Help {
-   Write-Host "Writes piped ouput of VM's that match the specified replication state."
+   Write-Host "Writes piped output of VM's that match the specified replication state."
    Write-Host ""
    Write-Host "ReplicationStatus.ps1 -TintriServer server [-ServiceGroup service_group_name] [-VMs list of VMs]"
-   Write-Host "                      [-VMname VM name pattern] [-State state] [-NotState state] [-All]"
+   Write-Host "                      [-VMname VM name pattern] [-State state] [-NotState state] [-All] [-NotConfigured]"
    Write-Host ""
    Write-Host "State is matched with the VM's replication state, while NotState matches all states except"
    Write-Host "the specified state."
@@ -147,6 +150,9 @@ Function Write-Help {
    Write-Host "The -All option will display all VMs with the replication state, and take precedence"
    Write-Host "over the -State option.  This output is not piped."
    Write-Host ""
+   Write-Host "If the -NotConfigure switch is used, replications in the 'NOT_CONFIGURED' state will be "
+   Write-Host "will be display.  The default is off."
+   Write-Host ""
    Exit
 }
 
@@ -155,6 +161,7 @@ Function Write-Help {
 $vmOptionSelected = $false
 $stateToMatch = "no"
 $stateNotToMatch = "RUNNING"
+$displayNotConfigured = $false
 $displayStatus = $false
 
 If (($PSBoundParameters.Count -eq 0) -or ($PSBoundParameters.ContainsKey('Help'))) {
@@ -190,12 +197,21 @@ If ($PSBoundParameters.ContainsKey('VMName')) {
     Write-Host "Name: $name"
 }
 
+If ($PSBoundParameters.ContainsKey('NotConfigured')) {
+    $displayNotConfigured = $true
+}
+
 If ($PSBoundParameters.ContainsKey('State')) {
     If (-not (Is-State-Valid $State)) {
        Write-Error "State specified not valid.  Use -Help for details."
        Exit
     } 
     $stateToMatch = $State
+
+    # if NOT_CONFIGURED is selected, force to display.
+    if ($stateToMatch -eq "NOT_CONFIGURED") {
+        $displayNotConfigured = $true
+    }
 }
 
 If ($PSBoundParameters.ContainsKey('NotState')) {
@@ -223,9 +239,8 @@ Else {
 # Connect to the Tintri server.
 # Password will be requested in a Windows pop-up.
 $conn = Connect-TintriServer -Server $tintriServer -UserName $user -ErrorVariable connError
-if (!$conn)
-{
-    Write-Error "Connection Error on $tintriServer - $connError"
+if (!$conn) {
+    Write-Error "Connection Error on $tintriServer"
     Exit
 }
 
@@ -261,21 +276,30 @@ Try
         $ruleVms = Get-TintriVM
     }
 
+    if ($ruleVms.Count -eq 0) {
+        Throw "No VMs to process"
+    }
+
     Write-Host "Checking $($ruleVms.Count) VMs"
     foreach ($vm in $ruleVms) {
-        $vm_repl_config = Get-TintriVMReplConfiguration -VM $vm
+        $repl_state = $vm.Replication.ReplicationState
+
+        if (($repl_state -eq "NOT_CONFIGURED") -and (-not $displayNotConfigured)) {
+            continue
+        }
+
         If ($displayStatus) {
-            Write-Name-State $vm.Vmware.Name $vm_repl_config.ReplicationState
+            Write-Name-State $vm.Vmware.Name $repl_state
         }
         Else {
             If ($stateToMatch -ne "no") {
                 If ($vm_repl_config.ReplicationState -eq $stateToMatch) {
-                    Write-Name-State $vm.Vmware.Name $vm_repl_config.ReplicationState
+                    Write-Name-State $vm.Vmware.Name $repl_state
                 }
             }
             Else {
                 If ($vm_repl_config.ReplicationState -ne $stateNotToMatch) {
-                    Write-Name-State $vm.Vmware.Name $vm_repl_config.ReplicationState
+                    Write-Name-State $vm.Vmware.Name $repl_state
                 }
             }
         }    
