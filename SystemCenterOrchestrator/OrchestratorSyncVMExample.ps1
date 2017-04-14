@@ -48,9 +48,9 @@ SOFTWARE.
 $standalone = $true
 
 # environment-specific constants defined here.
-$DeveloperVMName = "mgeddes-report"
-$ProductionVMName = "mgeddes-prod"
-$TintriVMstoreName = "pd-t820-01.cldemo.tintri.com"
+$DeveloperVMName = "vmlevel-app-dev1"
+$ProductionVMName = "vmlevel-app-prod"
+$TintriVMstoreName = "vmstore01.vmlevel.com"
 
 if(-not $standalone) {
     # Input parameters from previous activities in Orchestrator. This
