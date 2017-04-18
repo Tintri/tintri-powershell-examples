@@ -131,7 +131,7 @@ $Results = Invoke-Command -Session $Session -ArgumentList $ArgsList -ScriptBlock
     # We establish a session to the Tintri VMstore
     if($status) {
         try {
-            Write-Trace "Connecting to Tintri VMstore $VMstore"
+            Write-Trace "Connecting to Tintri VMstore $VMstore as $(whoami)"
             $ts = Connect-TintriServer -UseCurrentUserCredentials -IgnoreCertificateWarnings -ErrorAction Stop -Server $VMstore
         } catch {
             $e = $error[0].Exception.Message
