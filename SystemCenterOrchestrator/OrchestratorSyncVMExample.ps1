@@ -54,9 +54,9 @@ $TintriVMstoreName = "vmstore01.vmlevel.com"
 
 if(-not $standalone) {
     # Input parameters from previous activities in Orchestrator. This
-    # subscribes us to a variable called 'param1' that comes from the previous
+    # subscribes us to a variable called 'VMname' that comes from the previous
     # activity in our Orchestrator workflow.
-    $param = "{param1 from Initialize Data}"
+    $param = "{VMname from Initialize Data}"
 } else {
     # Use pre-defined test constant when running under ISE.
     $param = $DeveloperVMName
