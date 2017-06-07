@@ -289,3 +289,5 @@ Function Update-Vmstore
         }
     }
 }
+
+Export-ModuleMember -Function Update-Vmstore
