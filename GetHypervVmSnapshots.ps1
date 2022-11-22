@@ -1,7 +1,7 @@
 ﻿<#
 The MIT License (MIT)
 
-Copyright (c) 2015 Tintri, Inc.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,20 +23,34 @@ SOFTWARE.
 #>
 
 <#
+  The following code snippet shows how the Tintri Automation Toolkit interoperates with  
+  Microsoft Hyper-V Manager cmdlets.
 
-The following code snippet shows how the Tintri Automation Toolkit interoperates with  
-Microsoft Hyper-V Manager cmdlets.
-
-We can pass Hyper-V Manager VM objects as input to Tintri cmdlets.
-
-* Requires Tintri Automation Toolkit 1.5.
-#>
-
+  We can pass Hyper-V Manager VM objects as input to Tintri cmdlets.
+  - Requires Tintri Automation Toolkit 1.5 or above.
+#>  
 Param(
-    [string] $tintriServer,
-    [string] $hypervHost,
-    [string] $hypervVmName    
+  [string] $tintriserver,
+  [string] $tsusername,
+  [string] $tspassword,
+  [string] $hypervHost,
+  [string] $hypervVmName
 )
+  
+
+# import the tintri toolkit 
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+Write-Host "Importing the Tintri Powershell Toolkit module [TintriPS$($tpsEdition)Toolkit].`n"
+Import-Module -force "${ENV:ProgramFiles}\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
+
+
+# connect to the tintri storage server
+Write-Host "Connecting to a tintri server $tintriserver."
+($conn = Connect-TintriServer -Server $tintriserver -UserName $tsusername -Password $tspassword -SetDefaultServer) | fl *
+if ($conn -eq $null) {
+    Write-Error "Connection to storage server:$tintriserver failed."
+    return
+}
 
 # Get VMs on a Hyper-V machine
 
@@ -52,14 +66,12 @@ $hypervVm = Invoke-Command -ComputerName $hypervHost -ScriptBlock `
     Param([string] $vmName)    
     Get-VM -Name $vmName 
 } -ArgumentList $hypervVmName -Credential "" -Debug
+$hypervVm
 
 # Note:
 # If we are part of the same domain, we can simply run:
 # $hypervVm = Get-VM -Name $hypervVmName -ComputerName $hypervHost
 
-# Connect to the VMstore, will prompt for credentials
-Write-Host "Connecting to the Tintri server $tintriServer (will prompt for credentials)"
-Connect-TintriServer -Server $tintriServer
 
 # Resolve the corresponding Tintri VM object from VMstore
 Write-Host "Resolving the corresponding TintriVM object for $hypervVmName from VMstore"

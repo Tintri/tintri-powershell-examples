@@ -1,7 +1,7 @@
 ﻿<#
 The MIT License (MIT)
 
-Copyright (c) 2015 Tintri, Inc.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +49,53 @@ param
     [PSCredential] $credentials
 )
 
+
+function validateDiskLists( $snapDisks, $vmdisks )
+{
+	
+    Write-Host ""
+	Write-Host "Now validating snapshot and destination disk lists for the VM: $sourceVmName"
+    if (!$snapDisks -or !$vmdisks)
+    {
+        throw "Source disk (snapDisks) count [$($snapdisks.count)] or destination (vmDisk) disk count [$($vmdisks.count)] is zero, can not continue till disks added. This script will filter boot (* 0:0), synthetic and non VM disks.  Please check disk lists and script if it will work for your situation."
+    }
+    if ($snapdisks.Count -ne $vmdisks.Count)
+    {
+        throw "Source disk (snapDisks) count [$($snapdisks.count)] does not equal the destination (vmDisk) disk count [$($vmdisks.count)], syncing to mismatch of disks is not supported by this script, due to the risk of data mismatch on a partial synchronize. Please check disk lists and script if it will work for your situation."
+    }
+    
+    #NOTE: you can provide your own mapping here, this might not be the case for all customers, but is the normal mapping
+    foreach ($snapDisk in $snapdisks)
+    {
+         if (! ($vmdisks | where { $_.Name -eq $snapDisk.Name }) )
+         {
+            throw "Source disk [$snapDisk] was not found in the destination disks this script must have a one to one matching. Please check disk lists and script if it will work for your situation."
+         }
+    }
+}
+
+function filterDiskList( $disks, $includeBootDisk, $description )
+{
+    write-host ""
+	Write-Host "Filtering $description disks [includeBoot:$includeBootDisk] for the VM: $sourceVmName to target: $destinationVmNamePattern"
+    write-host ""
+    write-host "Original all-unfiltered $description disks:"
+    write-host "-----------------------------------------------"
+    $disks | ft -AutoSize -Force | out-host
+
+    write-host ""
+    write-host "Filtered $description disks:"
+    write-host "-----------------------------------------------"
+    $disks = $disks |  sort -property Name | where {(! $_.IsSynthetic) -and ($_.IsDiskdrive) }
+	if ($includeBootDisk -eq $false)
+	{
+		$disks = $disks |  sort -property Name | where { ($_.Name -notlike "* 0:0") }
+	}
+    $disks | Select-Object Name, Path, VmName | FT -AutoSize | out-host
+
+    return $disks
+}
+
 function Refresh-Disks
 {
     <#
@@ -70,41 +117,67 @@ function Refresh-Disks
         [PSCredential] $credentials
     )
 
-    # Connect to the VMstore, will prompt for credentials
-    Write-Host "Connecting to the VMstore $tintriServer"
-    $ts = Connect-TintriServer -Server $tintriServer -Credential $credentials 
+    # import the tintri toolkit 
+    if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+    Import-Module -force "C:\Program Files\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
 
-    if ($ts -eq $null)
-    {
-        Write-Host "Could not connect to $tintriServer"
+
+    # Connect to the Tintri server, can prompt for credentials
+    Write-Host "Connecting to the VMstore $tintriServer"
+    $conn = Connect-TintriServer -Server $tintriserver -Credential $credentials -SetDefaultServer -ErrorVariable connError
+    if ($conn -eq $null) {
+        Write-Error "Connection to storage server:$tintriserver failed Error:$connError."
         return
     }
+    
 
     # Get the source VM (whose latest snapshot's disk will be used for refresh)
     Write-Host "Getting the source VM $sourceVmName on $tintriServer"
-    $sourceVm = Get-TintriVM -Name $sourceVmName
+    $sourceVm = (Get-TintriVM -Name $sourceVmName)[-1]
+
 
     # Get the latest snapshot
     Write-Host "Getting the latest snapshot of the VM $sourceVmName"
-    $snapshot = Get-TintriVMSnapshot -VM $sourceVm -GetLatestSnapshot
+    ($snapshot = Get-TintriVMSnapshot -VM $sourceVm -GetLatestSnapshot) | fl *
 
+	
+	Write-Host "Getting the virtual disks contained in the latest snapshot of the VM $sourceVmName"
     Write-Host "The disks of this snapshot will be used to refresh the destination VMs"
+    ($vmDisksSourceSnapshot = Get-TintriVDisk -Snapshot $snapshot) | fl *
+
 
     # Get the destination VMs
     Write-Host "Getting the destination VMs whose name matches the pattern $destinationVmNamePattern"
-    $destinationVms = Get-TintriVM -Name $destinationVmNamePattern
+    ($destinationVms = Get-TintriVM -Name $destinationVmNamePattern) | fl *
 
-    # Sync (refresh) vDisks of the destination VMs with the source snapshot disks
-    Write-Host "All disks except the first (which is typically the OS disk) will be refreshed"
 
-    # Using the 'Force' option because this script is run in a schedule, not interactively.
-    # Make sure you test this action before you schedule it.
-    Sync-TintriVDisk -VM $destinationVms -SourceSnapshot $snapshot -AllButFirstVDisk -Force
+    foreach ($destinationVm in $destinationVms)
+	{
+		Write-Host "Getting the destination VMs $($destinationVm.Vmware.Name) virtual disks	"
+		($vmdisksDestination = Get-TintriVDisk -VM $destinationVm) | fl *
 
+		Write-Host "Filter disks to match the destination VMs $($destinationVm.Vmware.Name) virtual disks"
+		Write-Host "Please verify the disk mapping matches your desired synchronization lists (boot disk 0:0 filtered by default)"
+		Write-Host "Make sure you test verify this mapping before you schedule it."
+		$vmDisksSourceSnapshot = filterDiskList $vmDisksSourceSnapshot $false "Snapshot VM Source"
+		$vmdisksDestination = filterDiskList $vmdisksDestination $false "VM Destination"
+
+		# validate disk lists are not empty and have a one to one matching of data disks, throw if invalid
+		validateDiskLists $vmDisksSourceSnapshot $vmdisksDestination
+
+		# Sync (refresh) vDisks of the destination VMs with the source snapshot disks
+		# Using the 'Force' option because this script is run in a schedule, not interactively.
+		Write-Host "Typically all disks except the first which is the OS disk are often refreshed"
+		Sync-TintriVDisk -VM $destinationVm -SourceSnapshot $snapshot -SnapshotDisk $vmDisksSourceSnapshot -VMDisk $vmdisksDestination -Force
+	}
+	
     # Disconnecting from all the Tintri servers
     Disconnect-TintriServer -All
 }
 
+$doSchedule = $false
+if ($doSchedule -eq $true)
+{
 # Trigger to determine when the script will be executed
 Write-Host "Creating a new trigger for the job - run daily at 3 am."
 $trigger = New-JobTrigger -Daily -At "3:00 AM"
@@ -116,3 +189,8 @@ Register-ScheduledJob -Name Refresh-Disks `
     -Trigger $trigger
 
 # To unregister, try UnRegister-ScheduledJob -Name Refresh-Disks
+}
+else
+{
+    Refresh-Disks $tintriServer $sourceVmName $destinationVmNamePattern $credentials
+}   

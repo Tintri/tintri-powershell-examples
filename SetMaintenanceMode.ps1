@@ -1,38 +1,62 @@
-﻿# The MIT License (MIT)
-#
-# Copyright (c) 2016 Tintri, Inc.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+﻿<#
+The MIT License (MIT)
 
-# Gets and sets the VMstore appliance maintenance mode.  The PowerShell Toolkit
-# is not used due to a bug in obtaining the maintenance mode with Get-TintriAppliance.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+#>
+
+<#
+  Gets and sets the VMstore appliance maintenance mode.  The PowerShell Toolkit
+  is not used due to a bug in obtaining the maintenance mode with Get-TintriAppliance.
+#>  
 
 param([String]$tintriServer="ttxx",
       [String]$user="admin",
       [String]$password="password"
      )
 
-Import-Module 'C:\Program Files\TintriPSToolkit\TintriPSToolkit.psd1'
+# import the tintri toolkit 
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+$moduleName = "TintriPS$($tpsEdition)Toolkit"
+Import-Module -force "C:\Program Files\$moduleName\$moduleName.psd1"
+
+# verify the version is appropriate
+$currentVersion =  (get-module $moduleName | select version).Version
+if ([Version]"$currentVersion" -ge [Version]"3.0.0.0")
+{
+	throw "This script is meant as an example for earlier versions (prior to 3.x) of the Tintri Powershell Toolkit (current version: $currentVersion). Please use the Enable-TintriApplianceMaintenanceMode and Disable-TintriApplianceMaintenanceMode cmdlets instead."
+}
 
 Set-Variable JSON_CONTENT "application/json; charset=utf-8"
 Set-Variable APPLIANCE_URL "/api/v310/appliance/default"
 
+
+function setupCertificateHandling( )
+{
+	# # Using self-signed certificates. See also
+	# # http://stackoverflow.com/questions/12187634/powershell-invoke-restmethod-using-self-signed-certificates-and-basic-authentica
+	# # https://blog.kmsigma.com/2015/12/07/powershell-function-to-suppress-https-self-signed-certificate-errors/
+    $global:SKIP_CERTIFICATE_CHECK = $true
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+    [System.Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
 
 function tintriVersion
 {
@@ -41,7 +65,11 @@ function tintriVersion
     $versionUri = "https://$($server)/api/info"
     Write-Verbose "Login URI: $($loginUri)"
 
-    $resp = Invoke-RestMethod -Method Get -Uri $versionUri -ContentType $JSON_CONTENT
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Method Get -Uri $versionUri -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Method Get -Uri $versionUri -ContentType $JSON_CONTENT
+	}
 
     return $resp
 }
@@ -60,7 +88,11 @@ function tintriLogin
                   } 
 
     $loginBody = $loginDict | ConvertTo-Json
-    $resp = Invoke-RestMethod -sessionVariable session -Method Post -Uri $loginUri -Body $loginBody -ContentType $JSON_CONTENT
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -sessionVariable session -Method Post -Uri $loginUri -Body $loginBody -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -sessionVariable session -Method Post -Uri $loginUri -Body $loginBody -ContentType $JSON_CONTENT
+	}
 
     return $session
 }
@@ -73,7 +105,11 @@ function getMaintenanceMode
 
     $url = "https://$($server)$($APPLIANCE_URL)/maintenanceMode"
     Write-Host "Get maintenance mode: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	}
     
     return $resp
 }
@@ -133,7 +169,12 @@ function setMaintenanceMode
     # Set the maintenance mode.
     $url = "https://$($server)$($APPLIANCE_URL)"
     Write-Verbose "Set maintenance mode: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Put -WebSession $session -Body $requestPayload -ContentType $JSON_CONTENT
+	
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Put -WebSession $session -Body $requestPayload -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Put -WebSession $session -Body $requestPayload -ContentType $JSON_CONTENT
+	}
 }
 
 function tintriLogout
@@ -144,7 +185,11 @@ function tintriLogout
     # Logout
     $logoutUri = "https://$($server)/api/v310/session/logout"
     Write-Verbose "Logout URI: $($logoutUri)"
-    $resp = Invoke-RestMethod -WebSession $session -Method Get -Uri $logoutUri -ContentType $JSON_CONTENT
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -WebSession $session -Method Get -Uri $logoutUri -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -WebSession $session -Method Get -Uri $logoutUri -ContentType $JSON_CONTENT
+	}
 }
 
 
@@ -167,25 +212,27 @@ Write-Host "Set Maintenance Mode"
 
 Try
 {
+	# set how we handle certificates, tls, etc.
+	setupCertificateHandling
+	
+	
     # Get the preferred version.
-    $versionInfo = tintriVersion $server
+    $versionInfo = tintriVersion $tintriServer
     $productName = $versionInfo.productName
     if ($productName -ne "Tintri VMstore") {
         Throw "Tintri Server is not Tintri VMstore"
     }
-
-    Write-Host("API Version: $($versionInfo.preferredVersion)")
-
+	
     # Connect to the Tintri server.
-    $session = tintriLogin $server  $user  $password
+    $session = tintriLogin $tintriServer  $user  $password
 
     # Get the VMstore maintenance mode.
-    $maintMode = getMaintenanceMode $server $session
+    $maintMode = getMaintenanceMode $tintriServer $session
 
     printMaintenanceMode $maintMode
 
     # Now set the maintenance mode.
-    setMaintenanceMode $maintMode $server $session
+    setMaintenanceMode $maintMode $tintriServer $session
 
 }
 Catch
@@ -201,4 +248,7 @@ Catch
 }
 
 # Disconnect from the Tintri server.
-tintriLogout $server $session
+if ($session)
+{
+	tintriLogout $tintriServer $session
+}

@@ -1,7 +1,7 @@
 ﻿<#
 The MIT License (MIT)
 
-Copyright (c) 2015 Tintri, Inc.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -38,24 +38,23 @@ exactly one VMstore (not multiple VMstores).
 #>
 
 Param(
-    [string] $tgcName,
-    [string] $vmStoreName,
+    [string] $tgcTintriServer,
+    [string] $tintriserver,
     [string] $serviceGroupName,
     [int] $minNormalizedIops    
 )
 
 # Connect to the TGC, will prompt for credentials
-Write-Host "Connecting to the Tintri Global Center $tgcName"
-$tgc = Connect-TintriServer -Server $tgcName
-
+Write-Host "Connecting to the Tintri Global Center $tgcTintriServer"
+$tgc = Connect-TintriServer -Server $tgcTintriServer -SetDefaultServer -ErrorVariable connError
 if ($tgc -eq $null)
 {
-    Write-Host "Could not connect to $tgcName"
+    Write-Error "Could not connect to $tgcTintriServer."
     return
 }
 
 # Get the service group on the TGC
-Write-Host "Getting the service group $serviceGroupName on $tgcName"
+Write-Host "Getting the service group $serviceGroupName on $tgcTintriServer"
 $serviceGroup = Get-TintriServiceGroup -Name $serviceGroupName
 
 # Fetch all the VMs of the service group
@@ -64,16 +63,15 @@ $serviceGroupVmsOnTgc = $serviceGroup | Get-TintriVM
 
 # Resolve the corresponding VM objects on the VMstore.
 # Connect to the VMstore, will prompt for credentials
-Write-Host "Connecting to the VMstore $vmStoreName"
-$ts = Connect-TintriServer $vmStoreName
-
+Write-Host "Connecting to the VMstore $tintriserver"
+$ts = Connect-TintriServer $tintriserver -SetDefaultServer -ErrorVariable connError
 if ($ts -eq $null)
 {
-    Write-Host "Could not connect to $vmStoreName"
+    Write-Error "Could not connect to $tintriserver. Error: $connError"
     return
 }
 
-Write-Host "Resolving the corresponding VMs on $vmStoreName"
+Write-Host "Resolving the corresponding VMs on $tintriserver"
 $serviceGroupVmsOnVmstore = $serviceGroupVmsOnTgc | Get-TintriVM -Uuid { $_.Uuid.UuId } -TintriServer $ts
 
 # We can apply QoS policies only on live VMs. Filter them.

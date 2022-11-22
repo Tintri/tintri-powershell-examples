@@ -1,7 +1,7 @@
 ﻿<#
 The MIT License (MIT)
 
-Copyright (c) 2015 Tintri, Inc.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,45 +23,70 @@ SOFTWARE.
 #>
 
 <#
-
-The following code snippet shows how to delete snapshots on a Tintri VMstore 
-using the Tintri Automation Toolkit 1.5.0.1.
-
+The following code snippet shows how to delete snapshots on a Tintri VMstore
 #>
 
 Param(
     [string] $tintriServer,
+    [string] $tsusername,
+    [string] $tspassword,	
     [string] $vmName    
 )
 
-# Connect to the VMstore, will prompt for credentials
-Write-Host "Connecting to the Tintri server $tintriServer"
-Connect-TintriServer -Server $tintriServer
+
+# import the tintri toolkit 
+Write-Output ">>> Import the Tintri Powershell Toolkit module.`n"
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+Import-Module -force "C:\Program Files\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
+
+
+# connect to the tintri storage server
+Write-Output ">>> Connect to a tintri server $tintriserver.`n"
+($conn = Connect-TintriServer -Server $tintriserver -UserName $tsusername -Password $tspassword -SetDefaultServer) | fl *
+if ($conn -eq $null) {
+    Write-Error "Connection to storage server:$tintriserver failed."
+    return
+}
+
 
 # Get the Tintri VM with the given name
-Write-Host "Fetching the VM by name $vmName"
-$vm = Get-TintriVM -Name $vmName
+Write-Output ">>> Fetching the VM by name $vmName"
+($vm = Get-TintriVM -Name $vmName) | fl *
+
 
 # Create a couple of snapshots of the VM
-Write-Host "Creating a snapshot on the VM"
+Write-Output ">>> Creating a snapshot on the VM"
 New-TintriVMSnapshot -VM $vm -SnapshotDescription "Snapshot from PowerShell"
 
+
 # Get all the snapshots belonging to the VM
-Write-Host "Fetching all the snapshots of the VM $vmName"
-$snapshots = Get-TintriVMSnapshot -VM $vm
+Write-Output ">>> Fetching all the snapshots of the VM $vmName"
+($snapshots = Get-TintriVMSnapshot -VM $vm) | fl *
+
+
+# Remove replication from vm, otherwise snapshot deletion will fail
+Write-Output ">>> Remove replication from the VM $vmname to prevent snapshot deletion failure"
+Remove-TintriVMReplConfiguration -vmname $vmName
+get-TintriVMReplConfiguration -vmname $vmName
+
 
 # Remove the latest snapshot (will ask for confirmation, use -Force to suppress)
-Write-Host "Deleting the last created snapshot"
-Remove-TintriVMSnapshot -Snapshot $snapshots[-1]
+Write-Output ">>> Deleting the latest most recent snapshot"
+Get-TintriVMSnapshot -VM $vm -GetLatestSnapshot 
+Get-TintriVMSnapshot -VM $vm -GetLatestSnapshot | Remove-TintriVMSnapshot
+
 
 # Create a couple of snapshots with a specific description
-$description1 = "Snapshot 1 to delete"
-$description2 = "Snapshot 2 to delete"
-Write-Host 'Creating a couple of snapshots containing the description "to delete"'
+Write-Output '>>> Creating a couple of snapshots containing the description "to delete"'
+$snapSuffix = " to delete " + (Get-Date -Format "yyyymmdd-hhmmss")
+$description1 = "Snapshot 1" + $snapSuffix
+$description2 = "Snapshot 2" + $snapSuffix
 New-TintriVMSnapshot -VM $vm -SnapshotDescription $description1
 New-TintriVMSnapshot -VM $vm -SnapshotDescription $description2
 
+
 # Remove all the snapshots that contain the text "delete" in their description
-Write-Host 'Removing all the snapshots of the VM that contain the description "to delete"'
-$snapshots = Get-TintriVMSnapshot -VM $vm
-$snapshots | where { $_.Description -match "to delete" } | Remove-TintriVMSnapshot
+Write-Output '>>> Removing all the snapshots of the VM that contain the description "to delete"'
+$snapshots = Get-TintriVMSnapshot -VM $vm | where { $_.Description -like "*$snapSuffix*" } 
+$snapshots | Remove-TintriVMSnapshot -Force
+$snapshots 

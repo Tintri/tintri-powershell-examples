@@ -1,24 +1,26 @@
-﻿# The MIT License (MIT)
-#
-# Copyright (c) 2017 Tintri, Inc.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+﻿<#
+The MIT License (MIT)
+
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+#>
 
 <#
 .SYNOPSIS
@@ -184,7 +186,9 @@ Param([parameter(Mandatory=$true, Position=1)]
       [switch]$Force
      )
 
-Import-Module 'C:\Program Files\TintriPSToolkit\TintriPSToolkit.psd1'
+# import the tintri toolkit 
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+Import-Module -force "C:\Program Files\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
 
 Set-Variable JSON_CONTENT "application/json; charset=utf-8"
 Set-Variable DATASTORE_URL "/api/v310/datastore/default"
@@ -277,6 +281,16 @@ function InitialLogfile {
 }
 
 
+function setupCertificateHandling( [string] $logFile )
+{
+	# # Using self-signed certificates. See also
+	# # http://stackoverflow.com/questions/12187634/powershell-invoke-restmethod-using-self-signed-certificates-and-basic-authentica
+	# # https://blog.kmsigma.com/2015/12/07/powershell-function-to-suppress-https-self-signed-certificate-errors/
+    $global:SKIP_CERTIFICATE_CHECK = $true
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+    [System.Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
+
 # Gets the tintri API version.
 function tintriVersion
 {
@@ -285,8 +299,11 @@ function tintriVersion
     $versionUri = "https://$server/api/info"
     Write-Verbose "Version URI: $($versionUri)"
 
-    $resp = Invoke-RestMethod -Method Get -Uri $versionUri -ContentType $JSON_CONTENT
-
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Method Get -Uri $versionUri -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Method Get -Uri $versionUri -ContentType $JSON_CONTENT
+	}
     return $resp
 }
 
@@ -307,7 +324,11 @@ function tintriLogin
                   } 
 
     $loginBody = $loginDict | ConvertTo-Json
-    $resp = Invoke-RestMethod -sessionVariable session -Method Post -Uri $loginUri -Body $loginBody -ContentType $JSON_CONTENT
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -sessionVariable session -Method Post -Uri $loginUri -Body $loginBody -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+    } else {
+		$resp = Invoke-RestMethod -sessionVariable session -Method Post -Uri $loginUri -Body $loginBody -ContentType $JSON_CONTENT
+	}
 
     return $session
 }
@@ -322,7 +343,11 @@ function tintriLogout
     # Logout
     $logoutUri = "https://$($server)/api/v310/session/logout"
     Print-Verbose "Logout URI: $($logoutUri)"
-    $resp = Invoke-RestMethod -WebSession $session -Method Get -Uri $logoutUri -ContentType $JSON_CONTENT
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -WebSession $session -Method Get -Uri $logoutUri -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -WebSession $session -Method Get -Uri $logoutUri -ContentType $JSON_CONTENT
+	}
 }
 
 
@@ -334,8 +359,12 @@ function listSystemProperties
 
     $url = "https://$($server)$($DATASTORE_URL)/systemProperty"
     Print-Verbose "List system property: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
-    
+    if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	}
+	
     return $resp
 }
 
@@ -349,7 +378,11 @@ function getSystemProperty
 
     $url = "https://$($server)$($DATASTORE_URL)/systemProperty/$sysPropName"
     Print-Verbose "Get system property: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	if ($psEdition -eq "Core") {
+	    $resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+	    $resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	}
     
     return $resp
 }
@@ -382,7 +415,11 @@ function putSystemProperty
     Print-Verbose "Put system property: $($url) with payload:"
     Print-Verbose $requestPayload | Format-Table
 
-    $resp = Invoke-RestMethod -Uri $url -Method Put -WebSession $session -Body $requestPayload -ContentType $JSON_CONTENT
+	if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Put -WebSession $session -Body $requestPayload -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Put -WebSession $session -Body $requestPayload -ContentType $JSON_CONTENT
+	}
    
     return $resp
 }
@@ -421,7 +458,12 @@ function resetSystemProperty
 
     $url = "https://$($server)$($DATASTORE_URL)/systemProperty/$sysPropName"
     Print-Verbose "Reset system property: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Delete -WebSession $session -ContentType $JSON_CONTENT
+	
+	if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Delete -WebSession $session -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Delete -WebSession $session -ContentType $JSON_CONTENT
+	}
     
     return $resp
 }
@@ -436,7 +478,12 @@ function ForceResetSystemProperty
 
     $url = "https://$($server)$($DATASTORE_URL)/systemProperty/$sysPropName"
     Write-Verbose "Force Reset system property: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Delete -WebSession $session -ContentType $JSON_CONTENT
+	
+	if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Delete -WebSession $session -ContentType $JSON_CONTENT  -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Delete -WebSession $session -ContentType $JSON_CONTENT
+	}
     
     return $resp
 }
@@ -451,7 +498,11 @@ function getDatastoreStats
     # Get the datastore realtime statistics.
     $url = "https://$($server)$($DATASTORE_URL)/statsRealtime"
     Print-Verbose "Get realtime datastore stats: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	}
     
     $items = $resp.items
     $stats = $items.sortedStats[0]
@@ -460,7 +511,11 @@ function getDatastoreStats
     # which is only avalilable from the datastore API.
     $url = "https://$($server)$($DATASTORE_URL)"
     Print-Verbose "Get datastore information: $($url)"
-    $resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	if ($psEdition -eq "Core") {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT -SkipCertificateCheck:$SKIP_CERTIFICATE_CHECK
+	} else {
+		$resp = Invoke-RestMethod -Uri $url -Method Get -WebSession $session -ContentType $JSON_CONTENT
+	}
     
     # Extract spaceTotalGiB and put it in the datastore stat object.
     $spaceTotalGiB = $resp.stat.spaceTotalGiB
@@ -593,22 +648,8 @@ $verb = "List"  # Default
 # Initialize the log file.
 InitialLogfile $logFile
 
-# Using self-signed certificates. See:
-# http://stackoverflow.com/questions/12187634/powershell-invoke-restmethod-using-self-signed-certificates-and-basic-authentica
-add-type @"
-    using System.Net;
-    using System.Security.Cryptography.X509Certificates;
-
-        public class IDontCarePolicy : ICertificatePolicy {
-        public IDontCarePolicy() {}
-        public bool CheckValidationResult(
-            ServicePoint sPoint, X509Certificate cert,
-            WebRequest wRequest, int certProb) {
-            return true;
-        }
-    }
-"@
-[System.Net.ServicePointManager]::CertificatePolicy = new-object IDontCarePolicy
+# setup certificate handling
+setupCertificateHandling $logFile
 
 # Process cmdlet parameters.
 $numParms = $PSBoundParameters.Count

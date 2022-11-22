@@ -1,7 +1,7 @@
 ﻿<#
 The MIT License (MIT)
 
-Copyright (c) 2015 Tintri, Inc.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -41,23 +41,22 @@ Specifically:
 #>
 
 Param(
-    [string] $tintriServer,
+    [string] $tgcTintriServer,
     [string] $serviceGroupName,
     [string] $vmNameToAdd    
 )
 
 # Connect to the TGC, will prompt for credentials
-Write-Host "Connecting to the Tintri Global Center $tintriServer"
-$ts = Connect-TintriServer -Server $tintriServer
-
+Write-Host "Connecting to the Tintri Global Center $tgcTintriServer"
+$ts = Connect-TintriServer -Server $tgcTintriServer  -SetDefaultServer -ErrorVariable connError
 if ($ts -eq $null)
 {
-    Write-Host "Could not connect to $tintriServer"
+    Write-Error "Could not connect to $tgcTintriServer. Error: $connError"
     return
 }
 
 # List all the service groups on the TGC
-Write-Host "Fetching all the service groups on $tintriServer"
+Write-Host "Fetching all the service groups on $tgcTintriServer"
 Get-TintriServiceGroup
 
 # Create a new service group

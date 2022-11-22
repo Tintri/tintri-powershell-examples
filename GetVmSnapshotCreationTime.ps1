@@ -1,24 +1,27 @@
-# The MIT License (MIT)
-#
-# Copyright (c) 2015 Tintri, Inc.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+<#
+The MIT License (MIT)
+
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+#>
+
 #
 # Pipes an object with the VM name and its latest snapshot
 # creation time stamp.
@@ -32,17 +35,20 @@
 param([String]$tintriServer,
       [String]$user="admin")
 
-Import-Module 'C:\Program Files\TintriPSToolkit\TintriPSToolkit.psd1'
 
-# Connect to the Tintri server.
-# Password will be requested in a Windows pop-up.
-$conn = Connect-TintriServer -Server $tintriServer -UserName $user
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+Write-Verbose "Import the Tintri Powershell Toolkit module [TintriPS$($tpsEdition)Toolkit].`n"
+Import-Module -force "C:\Program Files\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
+
+
+Write-Verbose "Connecting to a tintri server $tintriserver.`n"
+$conn = Connect-TintriServer -Server $tintriserver -UserName $tsusername -Password $tspassword -SetDefaultServer
 if ($conn -eq $null) {
-    Write-Host "Connection Error"
+    Write-Error "Connection Error"
     return
 }
 
-# Show the appliance version
+
 $myHost = $conn.ApplianceHostName
 $myApiVersion = $conn.ApiVersion
 Write-Verbose "Connected to $myHost at $myApiVersion."
@@ -52,27 +58,27 @@ Write-Verbose "Collecting VM information."
 $vms = Get-TintriVM
 Write-Verbose "VM information collected."
 
-# Go through all the VMs and find the latest Snapshot create time.
+# Go through all the VMs and find the lastest Snapshot create time.
 $vms | ForEach-Object -Process {
-    $vmName = $($_.vmware.name)
 
-    $ss = Get-TintriVmSnapshot -VM $_
-    if ($ss -eq $null) {
-        Write-Verbose "No Snapshot for $vmName"
+    if (!$_.Snapshot) 
+	{
+        Write-Verbose "No Snapshot for $($_.Vmware.Name)"
     }
-    else {
-        $createDate = $ss[-1].CreateDate
-        Write-Verbose "$vmName : $createDate"
+    else 
+	{
+        Write-Verbose "$($_.Vmware.Name) : $($_.Snapshot.Latest.CreateTime)"
 
-        $ssObj = New-Object -TypeName PSObject
-        $ssObj | Add-Member -MemberType NoteProperty -Name VmName -Value ($vmName)
-        $ssObj | Add-Member -MemberType NoteProperty -Name latestSnapshotTime -Value ($createDate)
-        Write-Output $ssObj     
+        $snapObject = New-Object -TypeName PSObject
+        $snapObject | Add-Member -MemberType NoteProperty -Name VmName -Value $_.Vmware.Name
+        $snapObject | Add-Member -MemberType NoteProperty -Name latestSnapshotTime -Value $_.Snapshot.Latest.CreateTime
+        Write-Output $snapObject     
     }
 }
 
+
+Write-Verbose "Disconnecting from $myHost."
+
 # Disconnect from the Tintri server.
 Disconnect-TintriServer -TintriServer $conn
-
-Write-Verbose "Disconnected from $myHost."
 
