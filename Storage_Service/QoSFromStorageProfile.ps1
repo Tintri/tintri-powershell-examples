@@ -1,45 +1,50 @@
-﻿# The MIT License (MIT)
-#
-# Copyright (c) 2015 Tintri, Inc.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+﻿<#
+The MIT License (MIT)
 
-# This script sets the QoS values based on the VM's VMware storage profile
-# and a file with the storage profile name QoS values.
-# It assumes that the VMware storage profile name maps to a mount point, or
-# mount directory in Tintri parlance, to /tintri/<VMware storage profile>.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
 
-# Posistional Inputs:
-#    1. Tintri server IP or FQDN
-#    2. Tintri server user name
-#    3. QoS configuration file.  Location is based off the current directory 
-#       where the script is executed.  The file must be in the following format:
-#         storage_profile1 min_IOPs1 max_IOPs1
-#         storage_profile2 min_IOPs2 max_IOPs2
-#              . . .         . . .     . . .
-#         storage_profileN minIOPsN  max_IOPsN
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+#>
+
+<#
+	Posistional Inputs:
+	   * Tintri server IP or FQDN
+	   * Tintri server user name
+	   * Tintri server password
+	   * QoS configuration file.  Location is based off the current directory 
+		  where the script is executed.  The file must be in the following format:
+			storage_profile1 min_IOPs1 max_IOPs1
+			storage_profile2 min_IOPs2 max_IOPs2
+				 . . .         . . .     . . .
+			storage_profileN minIOPsN  max_IOPsN
+#>
 
 param([String]$tintriServer="192.168.107.103",
-      [String]$storageServiceConfig="StorageServiceConfig.txt",
-      [String]$user="admin")
+    [string] $tsusername,
+    [string] $tspassword,	
+	[String] $storageServiceConfigFile="StorageServiceConfig.txt" )
 
-Import-Module 'C:\Program Files\TintriPSToolkit\TintriPSToolkit.psd1'
+# import the tintri toolkit 
+Write-Host "Import the Tintri Powershell Toolkit module [TintriPS$($tpsEdition)Toolkit]."
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+Import-Module -force "${ENV:ProgramFiles}\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
+
 
 # Global variables
 $ss = @{}
@@ -48,8 +53,8 @@ $ss = @{}
 # Read the storage service configuration file.
 Try
 {
-    Write-Host "Opening up $storageServiceConfig"
-    $services = Get-Content $storageServiceConfig -ErrorAction Stop
+    Write-Host "Opening up $storageServiceConfigFile"
+    $services = Get-Content $storageServiceConfigFile -ErrorAction Stop
 }
 Catch
 {
@@ -95,12 +100,12 @@ if ($ss.Count -eq 0)
     Throw "No storage services in configuration file"
 }
 
-# Connect to the Tintri server.
-# Password will be requested in a Windows pop-up.
-$conn = Connect-TintriServer -Server $tintriServer -UserName $user
-if (!$conn)
-{
-    Throw "Connection Error"
+# connect to the tintri storage server
+Write-Host "Connect to a tintri server $tintriserver."
+($conn = Connect-TintriServer -Server $tintriserver -UserName $tsusername -Password $tspassword -SetDefaultServer) | fl *
+if ($conn -eq $null) {
+    Throw "Connection to storage server:$tintriserver failed."
+    return
 }
 
 $myHost = $conn.ApplianceHostName
@@ -125,7 +130,7 @@ Try
     $vms | ForEach-Object -Process {
         $vmName = $($_.Vmware.Name)
         $vCenterName = $($_.Vmware.VcenterName)
-        $scs = $($_.Vmware.StorageContainers)
+        $scs = $($_.Vmware.StorageContainers[0])
         $minIOPs = $($_.QosConfig.MinNormalizedIops)
         $maxIOPs = $($_.QosConfig.MaxNormalizedIops)
 
@@ -138,9 +143,9 @@ Try
 
         # Here we grab the VMware storage profile.  There could be more checking here.
         # Assume storage profile maps to /tintri/<Vmware_storage_profile>.
-        $vmStorageProfile = $mountDir.Substring($mountDir.LastIndexOf('/')+1)
+        $vmStorageProfile = split-path $mountDir -leaf
 
-        Write-Host "$vmName, $vmStorageProfile, $minIOPs, $maxIOPs"
+        Write-Host "$vmName, $vmStorageProfile, $minIOPs, $maxIOPs found at: $mountDir"
 
         # If the storage profile is "tintri", then there are no VMware storage profiles. 
         if ($vmStorageProfile -eq "tintri")
@@ -155,13 +160,24 @@ Try
         }
         elseif (!$ss[$vmStorageProfile])
         {
-            Write-Host -ForegroundColor Red "  No storage service named $vmStorageProfile."
+            Write-Host -ForegroundColor Yellow "  No storage service named $vmStorageProfile."
         }
         elseif ($ss[$vmStorageProfile].MinIOPs -ne $minIOPs -or $ss[$vmStorageProfile].MaxIOPs -ne $maxIOPs)
         {
-           Write-Host("  Setting VM " + $vmName + " to (" +
+			Write-Host("  Setting VM: $vmName to (" +
                       $ss[$vmStorageProfile].MinIOPs + "," + $ss[$vmStorageProfile].MaxIOPs + ")")
-           Set-TintriVMQOS -VM $_ -MaxNormalizedIops $ss[$vmStorageProfile].MaxIOPs -MinNormalizedIops $ss[$vmStorageProfile].MinIOPs
+			Set-TintriVMQOS -VM $_ -MinNormalizedIops $ss[$vmStorageProfile].MinIOPs  -MaxNormalizedIops $ss[$vmStorageProfile].MaxIOPs
+			$vmQosUpdated = get-TintriVM -vm $_ -Refresh
+			$minIOPsUpdated = $vmQosUpdated.QosConfig.MinNormalizedIops
+			$maxIOPsUpdated = $vmQosUpdated.QosConfig.MaxNormalizedIops
+			if ($ss[$vmStorageProfile].MinIOPs -ne $minIOPsUpdated -or $ss[$vmStorageProfile].MaxIOPs -ne $maxIOPsUpdated )
+			{
+				Write-Host -ForegroundColor Yellow "  QOS IOPs were not yet updated yet please check the TGC policy override for $vmName."
+			}
+			else 
+			{
+			    Write-Host("    ===> Read updated VM: $vmName with new QOS IOPs:($minIOPsUpdated,$maxIOPsUpdated)" )
+			}
         }
     }
 }

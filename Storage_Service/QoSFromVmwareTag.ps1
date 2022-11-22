@@ -1,38 +1,60 @@
-﻿# The MIT License (MIT)
-#
-# Copyright (c) 2016 Tintri, Inc.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+﻿<#
+The MIT License (MIT)
 
-# Reads a configuration file for storage service QoS information.
-# Collects VMs from VMstore.
-# Foreach VM, gets the VMware tag which maps to the storage service QoS
-# information, and sets the VM QoS if not already set to the values.
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
 
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+#>
+
+
+<#
+Reads a configuration file for storage service QoS information.
+  Collects VMs from VMstore.
+   Foreach VM, gets the VMware tag which maps to the storage service QoS
+   information, and sets the VM QoS if not already set to the values.
+  
+ This scripts requires vmware PowerCli module to already be installed.
+ This assumes the following has been setup previously:
+	New-TagCategory -Name "Storage-QOS" -Cardinality "single" -EntityType "VirtualMachine" -Description "Gold,Silver,Bronze level of storage IOPs Quality Of Service(QOS)"
+	New-Tag -Name gold   -Category Storage-QOS -Description "Gold level of storage IOPs Quality Of Service(QOS)"
+	New-Tag -Name silver -Category Storage-QOS -Description "Silver level of storage IOPs Quality Of Service(QOS)"
+	New-Tag -Name bronze -Category Storage-QOS -Description "Bronze level of storage IOPs Quality Of Service(QOS)"
+	Get-VM -Name vm*gold | New-TagAssignment -Tag "gold"
+	Get-VM -Name vm*silver | New-TagAssignment -Tag "silver"
+	Get-VM -Name vm*bronze | New-TagAssignment -Tag "bronze"
+#>
 
 param([String]$tintriServer="192.168.1.1",
-      [String]$storageServiceConfig="StorageServiceConfig.txt",
-      [String]$user="admin",
+      [String]$tsusername="admin",
+      [String]$tspassword="password",
+      [String]$storageServiceConfigFile="StorageServiceConfig.txt",
       [String]$vCenterUser="Administrator@vsphere.local")
 
-Import-Module 'C:\Program Files\TintriPSToolkit\TintriPSToolkit.psd1'
-Add-PSSnapin VMware.VimAutomation.Core
+
+# import the tintri toolkit 
+Write-Host "Import the Tintri Powershell Toolkit module."
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+Import-Module -force "C:\Program Files\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
+
+# import the vmware powershell module 
+import-module VMware.VimAutomation.Core
+
 
 # Global variables
 $ss = @{}
@@ -71,7 +93,7 @@ Function Connect-vCenter {
 # Read the storage service configuration file.
 Try
 {
-    $services = Get-Content $storageServiceConfig
+    $services = Get-Content $storageServiceConfigFile
 }
 Catch
 {
@@ -115,13 +137,15 @@ if ($ss.Count -eq 0)
 }
 Write-Host "Processed $($ss.Count) storage services."
 
-# Connect to the Tintri server.
-# Password will be requested in a Windows pop-up.
-$conn = Connect-TintriServer -Server $tintriServer -UserName $user
-if (!$conn)
-{
-    Throw "Connection Error"
+
+# connect to the tintri storage server
+Write-Host "Connecting to a tintri storage server $tintriserver."
+($conn = Connect-TintriServer -Server $tintriserver -UserName $tsusername -Password $tspassword -SetDefaultServer) | fl *
+if ($conn -eq $null) {
+    Throw "Connection to storage server:$tintriserver failed."
+    return
 }
+
 
 $myHost = $conn.ApplianceHostName
 Write-Verbose "Connected to $myHost."
@@ -159,22 +183,29 @@ Try
         $tagName = $(Get-TagAssignment -Server $vc_conn -Category Storage-QOS -Entity $vmName).Tag.Name
         if (!$tagName)
         {
-            Write-Host "No tag name, clear QoS"
             if ($minIOPs -ne 0 -or $maxIOPs -ne 0)
             {
-                Write-Host "Setting to infinity and beyond."
+                Write-Host -ForegroundColor Yellow "  No tag name, clear QOS, setting to infinity and beyond, on VM: $vmName."
                 Set-TintriVMQOS -VM $_ -ClearMinNormalizedIops -ClearMaxNormalizedIops
             }
+			else 
+			{
+				Write-Host -ForegroundColor Yellow "  No tag name, on VM: $vmname"
+			}
         }
         elseif (!$ss[$tagName])
         {
-            Write-Error "No storage service named $tagName."
+            Write-Host -ForegroundColor Yellow "  No storage service named $tagName on VM: $vmName, no setting QOS"
         }
         elseif ($ss[$tagName].MinIOPs -ne $minIOPs -or $ss[$tagName].MaxIOPs -ne $maxIOPs)
         {
-           Write-Host "Setting VM $vmName to ($ss[$tagName].MinIOPs, $ss[$tagName].MaxIOPs)"
+           Write-Host "  Setting VM $vmName to $($ss[$tagName].MinIOPs, $ss[$tagName].MaxIOPs)"
            Set-TintriVMQOS -VM $_ -MaxNormalizedIops $ss[$tagName].MaxIOPs -MinNormalizedIops $ss[$tagName].MinIOPs
         }
+		elseif ($ss[$tagName].MinIOPs -eq $minIOPs -and $ss[$tagName].MaxIOPs -eq $maxIOPs)
+		{
+           Write-Host -ForegroundColor Green "  VM $vmName already set to IOPs $($ss[$tagName].MinIOPs, $ss[$tagName].MaxIOPs)"
+		}
     }
 }
 Catch
@@ -187,7 +218,7 @@ Catch
 foreach ($vcenter in $vcenters.GetEnumerator())
 {
     Write-Host "Disconnecting from $($vcenter.Name)"
-    Disconnect-VIServer -Server $($vcenter.Value) -Force
+    Disconnect-VIServer -Server $($vcenter.Value) -Force -confirm:$false
 }
 
 # Disconnect from the Tintri server.
