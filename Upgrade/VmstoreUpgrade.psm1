@@ -1,14 +1,18 @@
 ﻿<#
 The MIT License (MIT)
-Copyright (c) 2015 Tintri, Inc.
+
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
+
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -38,7 +42,7 @@ SOFTWARE.
     Location of the upgrade package (RPM file).
 
     .EXAMPLE
-    Import-Module VmstoreUpgrade.psm1
+    Import-Module .\VmstoreUpgrade.psm1
     Update-Vmstore -VmstoreName "vmstore1.mycompany.com" -Username "myadminuser" -Password "mypassword" -UpgradeFile ".\Path\To\UpgradeFile.rpm"
 
 
@@ -151,9 +155,10 @@ Function Update-Vmstore
         Write-Output "Upgrade file location: $UpgradeFile"
 
         # Import the Tintri Automation toolkit, assuming it is installed at the conventional location.
-        # Modify as needed.
-        $TINTRI_POWERSHELL_TOOLKIT='C:\Program Files\TintriPSToolKit\TintriPSToolKit.psd1'
-        Import-Module $TINTRI_POWERSHELL_TOOLKIT
+		if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+		$TINTRI_POWERSHELL_TOOLKIT="${ENV:ProgramFiles}\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
+		Write-Output "Importing the Tintri Powershell Toolkit module [TintriPS$($tpsEdition)Toolkit]."
+        Import-Module -force $TINTRI_POWERSHELL_TOOLKIT
 
         # Create a PSCredential object
         $pass = $Password | ConvertTo-SecureString -AsPlainText -Force
@@ -164,8 +169,7 @@ Function Update-Vmstore
 
         # Connect to the VMstore, will prompt for credentials
         Write-Output "Connecting to the VMstore $VmstoreName"
-        $script:tintriServer = Connect-TintriServer -Server $VmstoreName -Credential $credentials -WarningAction Ignore
-
+        $script:tintriServer = Connect-TintriServer -Server $VmstoreName -Credential $credentials -WarningAction Ignore -SetDefaultServer
         if ($script:tintriServer -eq $null)
         {
             Throw "Could not connect to $VmstoreName."
