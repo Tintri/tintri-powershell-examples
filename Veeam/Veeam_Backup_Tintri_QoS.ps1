@@ -1,24 +1,26 @@
-﻿# The MIT License (MIT)
-#
-# Copyright (c) 2016 Tintri, Inc.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+﻿<#
+The MIT License (MIT)
+
+Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+#>
 
 <#
 .SYNOPSIS
@@ -38,29 +40,42 @@
 .OUTPUTS
     Status to standard out and a log file, VeeamTintri.log.
 .ASSUMPTIONS
-    Assumes that the Veeam PowerShell Snap-in and the Tintri PowerShell Toolkit
-    are install. PowerShell 3.0 and .NET 4.5 are required.
+    Assumes that the Veeam PowerShell Module and the Tintri PowerShell Toolkit
+    are install. PowerShell 3.0 and above and .NET 4.5 and above are required.
 #>
 
 # Veeam_Backup_Tintri_QoS input parameters
 [cmdletbinding()]
 param([Parameter(Mandatory=$true, ValueFromPipeline=$false)]
       [String]$veeamServer,
-      [Parameter(Mandatory=$true, ValueFromPipeline=$false)]
-      [String]$tgc,
       [Parameter(ValueFromPipeline=$false)]
       [String]$veeamUser="administrator",
       [Parameter(ValueFromPipeline=$false)]
+      [String]$veeamPassword=$null,
+      [Parameter(Mandatory=$true, ValueFromPipeline=$false)]
+      [String]$tgc,
+      [Parameter(ValueFromPipeline=$false)]
       [String]$tgcUser="admin",
+      [Parameter(ValueFromPipeline=$false)]
+      [String]$tgcPassword=$null,
       [Parameter(ValueFromPipeline=$false)]
       [switch]$inDebug=$False)
 
-Import-Module 'C:\Program Files\TintriPSToolkit\TintriPSToolkit.psd1'
-Add-PSSnapin -Name VeeamPSSnapIn
 
-# Needs to be modified for current environment
-$veeamPassword = "Veeam_Password"
-$tgcPassword = "TGC_Password"
+
+# import the tintri toolkit 
+if ($psEdition -ne "Core") { $tpsEdition = "" } else { $tpsEdition = $psEdition }
+Write-Host "Importing the Tintri Powershell Toolkit module [TintriPS$($tpsEdition)Toolkit]."
+Import-Module -force "${ENV:ProgramFiles}\TintriPS$($tpsEdition)Toolkit\TintriPS$($tpsEdition)Toolkit.psd1"
+
+
+Write-Host "Importing the veeam module Veeam.Backup.PowerShell."
+Import-Module -force Veeam.Backup.PowerShell
+
+
+# Needs to be modified for current environment, if not passed in
+if ($null -eq $veeamPassword) { $veeamPassword = "Veeam_Password"}
+if ($null -eq $tgcPassword) { $tgcPassword = "TGC_Password" }
 
 # Standard log file name
 $logFile = "VeeamTintri.log"
@@ -524,6 +539,8 @@ Print-Info "Veeam Tintri VM Monitor"
 
 Try
 {
+	Disconnect-VBRServer -ea SilentlyContinue
+	
     # Connect to the Veeam server.
     Connect-VBRServer -Server $veeamServer -User $veeamUser -Password $veeamPassword
     $veeamConnected = $true

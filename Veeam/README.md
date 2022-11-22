@@ -8,31 +8,27 @@ complete as quickly as possible.
 ### Requirements
 The following is required:
 
-1. Windows 7 and Windows Server 2008 R2 or later, x64, Microsoft PowerShell 3.0 and Microsoft .NET Framework 4.5 or later. VMstores must run Tintri OS version 3.2.1 or later. This maps to API v310.21 or later.
-1. Microsoft PowerShell 3.0 and Microsoft .NET Framework 4.5 or later.
-1. TGC 2.0 or later which monitoring VMstores on Tintri OS version 3.2.1 or later. This maps to API v310.21 or later.
-1. Tintri Automation Toolkit 3.0 
-1. VeeamPSSnapIn.  Check [here](https://www.veeam.com/kb1489) for details on how to obtain.
+* Windows 7 and Windows Server 2008 R2 or later, x64, Microsoft PowerShell 3.0 and Microsoft .NET Framework 4.5 or later. VMstores must run Tintri OS version 3.2.1 or later. This maps to API v310.21 or later.
+* Microsoft PowerShell 3.0 or later and Microsoft .NET Framework 4.5 or later.
+* TGC 2.0 or later which monitoring VMstores on Tintri OS version 3.2.1 or later. This maps to API v310.21 or later.
+* Tintri Automation Toolkit 3.0 or later
+* VeeamPSSnapIn snapin or Veeam.Backup.PowerShell module.  Check [here](https://www.veeam.com/kb1489) for details on how to obtain.
 
-### Start-up
-
-The Veeam server and TGC server passwords must be configured in the script.  Open the script in a editor, and look for
-`$veeamPassword` and `$tgcPassword` and set the strings to the appropriate values.
 
 ### Executing
-The first two input parameters, Veeam server and TGC server, are required. The next 
-two parameters, user names,
-default to "administrator" for the VeeamServer and "admin" for the TGC server.
+The first two input parameters, Veeam server and TGC server, are required. The  
+other user name parameters, default to "administrator" for the VeeamServer and "admin" for the TGC server.
+The passwords can be passed as parameters, or they can be edited in the source ps1 file itelf.
 
-`Veeam_Backup_Tintri_QoS.ps1 VeeamServer myTGC` 
+   `Veeam_Backup_Tintri_QoS.ps1 -VeeamServer VeeamServer -tgc myTGC`
 
 If different users are needed, then they can be specified like this: 
 
-   `Veeam_Backup_Tintri_QoS.ps1 VeeamServer myTGC backupAdmin tgcAdmin`
+   `Veeam_Backup_Tintri_QoS.ps1 -VeeamServer VeeamServer -VeeamUser backupAdmin -tgc myTGC -tgcUser tgcAdmin`
 
 Finally there is a debug option:
 
-   `Veeam_Backup_Tintri_QoS.ps1 VeeamServer myTGC administrator admin $True`
+   `Veeam_Backup_Tintri_QoS.ps1 -VeeamServer VeeamServer -tgc myTGC -inDebug`
 
 ### Discussion
 Veeam_Backup_Tintri_QoS polls the Veeam server every 10 seconds. If a Veeam backup
