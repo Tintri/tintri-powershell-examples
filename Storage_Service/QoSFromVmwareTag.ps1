@@ -1,4 +1,4 @@
-﻿<#
+<#
 The MIT License (MIT)
 
 Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
@@ -31,13 +31,13 @@ Reads a configuration file for storage service QoS information.
   
  This scripts requires vmware PowerCli module to already be installed.
  This assumes the following has been setup previously:
-	New-TagCategory -Name "Storage-QOS" -Cardinality "single" -EntityType "VirtualMachine" -Description "Gold,Silver,Bronze level of storage IOPs Quality Of Service(QOS)"
-	New-Tag -Name gold   -Category Storage-QOS -Description "Gold level of storage IOPs Quality Of Service(QOS)"
-	New-Tag -Name silver -Category Storage-QOS -Description "Silver level of storage IOPs Quality Of Service(QOS)"
-	New-Tag -Name bronze -Category Storage-QOS -Description "Bronze level of storage IOPs Quality Of Service(QOS)"
-	Get-VM -Name vm*gold | New-TagAssignment -Tag "gold"
-	Get-VM -Name vm*silver | New-TagAssignment -Tag "silver"
-	Get-VM -Name vm*bronze | New-TagAssignment -Tag "bronze"
+    New-TagCategory -Name "Storage-QOS" -Cardinality "single" -EntityType "VirtualMachine" -Description "Gold,Silver,Bronze level of storage IOPs Quality Of Service(QOS)"
+    New-Tag -Name gold   -Category Storage-QOS -Description "Gold level of storage IOPs Quality Of Service(QOS)"
+    New-Tag -Name silver -Category Storage-QOS -Description "Silver level of storage IOPs Quality Of Service(QOS)"
+    New-Tag -Name bronze -Category Storage-QOS -Description "Bronze level of storage IOPs Quality Of Service(QOS)"
+    Get-VM -Name vm*gold | New-TagAssignment -Tag "gold"
+    Get-VM -Name vm*silver | New-TagAssignment -Tag "silver"
+    Get-VM -Name vm*bronze | New-TagAssignment -Tag "bronze"
 #>
 
 param([String]$tintriServer="192.168.1.1",
@@ -188,10 +188,10 @@ Try
                 Write-Host -ForegroundColor Yellow "  No tag name, clear QOS, setting to infinity and beyond, on VM: $vmName."
                 Set-TintriVMQOS -VM $_ -ClearMinNormalizedIops -ClearMaxNormalizedIops
             }
-			else 
-			{
-				Write-Host -ForegroundColor Yellow "  No tag name, on VM: $vmname"
-			}
+            else 
+            {
+                Write-Host -ForegroundColor Yellow "  No tag name, on VM: $vmname"
+            }
         }
         elseif (!$ss[$tagName])
         {
@@ -202,10 +202,10 @@ Try
            Write-Host "  Setting VM $vmName to $($ss[$tagName].MinIOPs, $ss[$tagName].MaxIOPs)"
            Set-TintriVMQOS -VM $_ -MaxNormalizedIops $ss[$tagName].MaxIOPs -MinNormalizedIops $ss[$tagName].MinIOPs
         }
-		elseif ($ss[$tagName].MinIOPs -eq $minIOPs -and $ss[$tagName].MaxIOPs -eq $maxIOPs)
-		{
+        elseif ($ss[$tagName].MinIOPs -eq $minIOPs -and $ss[$tagName].MaxIOPs -eq $maxIOPs)
+        {
            Write-Host -ForegroundColor Green "  VM $vmName already set to IOPs $($ss[$tagName].MinIOPs, $ss[$tagName].MaxIOPs)"
-		}
+        }
     }
 }
 Catch

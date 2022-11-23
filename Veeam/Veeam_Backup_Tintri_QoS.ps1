@@ -1,4 +1,4 @@
-﻿<#
+<#
 The MIT License (MIT)
 
 Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
@@ -32,11 +32,13 @@ SOFTWARE.
 .EXAMPLE
     Veeam_Backup_Tintri_QoS $veeamServer $tgcServer $veeamUser $tgcUser
 .INPUTS
-    Veeam server name or IP address
-    TGC server or IP address
-    Veeam user name
-    TGC user name
-    Optional debug parameter.  Default is false.
+    Veeam server DNS or IP address
+    Veeam user name (optional). Default is "administrator"
+    Veeam user password (optional). Default is value from script content.
+    TGC server DNS or IP address
+    TGC user name (optional). Default is "admin"
+    TGC user password (optional). Default is value from script content.
+    inDebug mode switch (optional). Default is false.
 .OUTPUTS
     Status to standard out and a log file, VeeamTintri.log.
 .ASSUMPTIONS

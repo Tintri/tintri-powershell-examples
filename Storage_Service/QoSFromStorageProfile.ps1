@@ -1,4 +1,4 @@
-﻿<#
+<#
 The MIT License (MIT)
 
 Copyright © 2022 Tintri by DDN, Inc. All rights reserved.
@@ -23,22 +23,22 @@ SOFTWARE.
 #>
 
 <#
-	Posistional Inputs:
-	   * Tintri server IP or FQDN
-	   * Tintri server user name
-	   * Tintri server password
-	   * QoS configuration file.  Location is based off the current directory 
-		  where the script is executed.  The file must be in the following format:
-			storage_profile1 min_IOPs1 max_IOPs1
-			storage_profile2 min_IOPs2 max_IOPs2
-				 . . .         . . .     . . .
-			storage_profileN minIOPsN  max_IOPsN
+    Posistional Inputs:
+       * Tintri server IP or FQDN
+       * Tintri server user name
+       * Tintri server password
+       * QoS configuration file.  Location is based off the current directory 
+          where the script is executed.  The file must be in the following format:
+            storage_profile1 min_IOPs1 max_IOPs1
+            storage_profile2 min_IOPs2 max_IOPs2
+                 . . .         . . .     . . .
+            storage_profileN minIOPsN  max_IOPsN
 #>
 
 param([String]$tintriServer="192.168.107.103",
     [string] $tsusername,
-    [string] $tspassword,	
-	[String] $storageServiceConfigFile="StorageServiceConfig.txt" )
+    [string] $tspassword,   
+    [String] $storageServiceConfigFile="StorageServiceConfig.txt" )
 
 # import the tintri toolkit 
 Write-Host "Import the Tintri Powershell Toolkit module [TintriPS$($tpsEdition)Toolkit]."
@@ -164,20 +164,20 @@ Try
         }
         elseif ($ss[$vmStorageProfile].MinIOPs -ne $minIOPs -or $ss[$vmStorageProfile].MaxIOPs -ne $maxIOPs)
         {
-			Write-Host("  Setting VM: $vmName to (" +
+            Write-Host("  Setting VM: $vmName to (" +
                       $ss[$vmStorageProfile].MinIOPs + "," + $ss[$vmStorageProfile].MaxIOPs + ")")
-			Set-TintriVMQOS -VM $_ -MinNormalizedIops $ss[$vmStorageProfile].MinIOPs  -MaxNormalizedIops $ss[$vmStorageProfile].MaxIOPs
-			$vmQosUpdated = get-TintriVM -vm $_ -Refresh
-			$minIOPsUpdated = $vmQosUpdated.QosConfig.MinNormalizedIops
-			$maxIOPsUpdated = $vmQosUpdated.QosConfig.MaxNormalizedIops
-			if ($ss[$vmStorageProfile].MinIOPs -ne $minIOPsUpdated -or $ss[$vmStorageProfile].MaxIOPs -ne $maxIOPsUpdated )
-			{
-				Write-Host -ForegroundColor Yellow "  QOS IOPs were not yet updated yet please check the TGC policy override for $vmName."
-			}
-			else 
-			{
-			    Write-Host("    ===> Read updated VM: $vmName with new QOS IOPs:($minIOPsUpdated,$maxIOPsUpdated)" )
-			}
+            Set-TintriVMQOS -VM $_ -MinNormalizedIops $ss[$vmStorageProfile].MinIOPs  -MaxNormalizedIops $ss[$vmStorageProfile].MaxIOPs
+            $vmQosUpdated = get-TintriVM -vm $_ -Refresh
+            $minIOPsUpdated = $vmQosUpdated.QosConfig.MinNormalizedIops
+            $maxIOPsUpdated = $vmQosUpdated.QosConfig.MaxNormalizedIops
+            if ($ss[$vmStorageProfile].MinIOPs -ne $minIOPsUpdated -or $ss[$vmStorageProfile].MaxIOPs -ne $maxIOPsUpdated )
+            {
+                Write-Host -ForegroundColor Yellow "  QOS IOPs were not yet updated yet please check the TGC policy override for $vmName."
+            }
+            else 
+            {
+                Write-Host("    ===> Read updated VM: $vmName with new QOS IOPs:($minIOPsUpdated,$maxIOPsUpdated)" )
+            }
         }
     }
 }
