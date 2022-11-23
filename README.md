@@ -13,7 +13,9 @@ The Tintri Automation Toolkit is a set of PowerShell cmdlets that help automate 
 This repository contains example scripts that show how some of the PowerShell cmdlets can be used in Tintri workflows. The scripts take input values and are easy to follow along.
 
 ### Requirements ###
-The Tintri Automation Toolkit requires Windows 7 and Windows Server 2008 R2 or later, x64, Microsoft PowerShell 3.0 and Microsoft .NET Framework 4.5 or later. VMstores must run Tintri OS version 3.0 or later.
+The Tintri Automation Toolkit requires Windows 7 or later, Windows Server 2008 R2 or later, x64, Microsoft PowerShell 3.0 or later, and Microsoft .NET Framework 4.5 or later. 
+The Tintri Automation Core Toolkit requires Windows 10 or later, Windows Server 2016 or later, x64, Microsoft Powershell 7.0 or later and Microsoft .NET Framework 4.62 or later.
+VMstores must run Tintri OS version 3.0 or later.
 
 ### Questions or Comments ###
 For questions and comments, please go to the [Tintricity Automation Discussion Group](http://hub.tinricity.com/discussions/automation).
