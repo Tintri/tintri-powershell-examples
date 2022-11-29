@@ -22,8 +22,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 #>
 
-#
-# This script demonstrates various Tintri VM clone workflows.
+<#
+  This script demonstrates various Tintri VM clone workflows.
+#>  
 
 Param(
   [string] $tintriserver,
