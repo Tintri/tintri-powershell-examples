@@ -39,9 +39,9 @@ Param(
   [string] $viserver,
   [string] $viusername,
   [string] $vipassword,
-  [string] $vmname, # no FQDN
-  [string] $source_destination_directory, # no '/' at the end
-  [string] $target_destination_directory, # no '/' at the end
+  [string] $vmname,                       # no FQDN
+  [string] $source_datastore_displayname, 
+  [string] $target_datastore_displayname, 
   [string] $source_esx,
   [string] $target_esx
 )
@@ -82,9 +82,9 @@ Write-Output ">>> Get the tintri vm $vmname on tintri server $source_tintriserve
 Write-Output ">>> Make sure source server $source_tintriserver has a datastore and hypervisor congfig to restore to.`n"
 
 ($source_datastore = Get-TintriHypervisorDatastore -TintriServer $source_ts | `
-    Where-Object {$_.HypervisorType -eq "VMWARE" -and $_.mountdirectories -contains "/tintri"}) | Format-List
+    Where-Object {($_.HypervisorType -eq "VMWARE") -and ($_.Displayname -eq $source_datastore_displayname)}) | Format-List
 
-$source_path = $source_destination_directory
+$source_path = $vmname
 if (!$source_datastore -or !$source_path)
 {
     Write-Error "Replication source vmstore $source_tintriserver does not have a vmware hypervisor or datastore configured yet. Please configure and try again.`n"
@@ -106,9 +106,9 @@ Write-Output ">>> Make sure target server $target_tintriserver has a datastore a
 Get-TintriVM -TintriServer $target_ts -Refresh | Out-Null
 
 ($target_datastore = Get-TintriHypervisorDatastore -TintriServer $target_ts | `
-    Where-Object {$_.HypervisorType -eq "VMWARE" -and $_.mountdirectories -contains "/tintri"}) | Format-List
+    Where-Object {($_.HypervisorType -eq "VMWARE") -and ($_.Displayname -eq $target_datastore_displayname)}) | Format-List
 
-$target_path = $target_destination_directory
+$target_path = $vmname
 if (!$target_datastore -or !$target_path)
 {
     Write-Error "Replication target vmstore $target_tintriserver does not have a vmware hypervisor or datastore configured. Please configure and try again.`n"
@@ -172,7 +172,7 @@ Get-TintriVM -TintriServer $target_ts -Refresh | Out-Null
 
 Write-Output ">>> Add vm $vmname on target tintri server $target_tintriserver to target ESX host $target_esx inventory.`n"
 
-$target_vmfilepath = '[' + $target_datastore.DisplayName + '] ' + $target_destination_directory + '/' + $vmname + '.vmx'
+$target_vmfilepath = '[' + $target_datastore.DisplayName + '] ' + $target_path + '/' + $vmname + '.vmx'
 
 New-VM -VMFilePath $target_vmfilepath -VMHost $target_esx
 
@@ -247,7 +247,6 @@ Write-Output ">>> Run 'Get-TintriVM' to refresh the tintri server $source_tintri
 
 Write-Output ">>> Restore vm $vmname on tintri server $source_tintriserver.`n"
 
-$source_path = $source_destination_directory
 
 Restore-TintriVM -Name $vmname -TintriServer $source_ts -DestinationDirectory $source_path -UseLatestSnapshot
 
@@ -255,7 +254,7 @@ Restore-TintriVM -Name $vmname -TintriServer $source_ts -DestinationDirectory $s
 
 Write-Output ">>> Add vm $vmname on tintri server $source_tintriserver to the ESX Host $source_esx inventory.`n"
 
-$source_vmfilepath = '[' + $source_datastore.DisplayName + '] ' + $source_destination_directory + '/' + $vmname + '.vmx'
+$source_vmfilepath = '[' + $source_datastore.DisplayName + '] ' + $source_path + '/' + $vmname + '.vmx'
 
 New-VM -VMFilePath $source_vmfilepath -VMHost $source_esx
 
