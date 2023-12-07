@@ -150,10 +150,10 @@ $snaps = $vms | Get-TintriVMSnapshot
 $snaps | Select-Object Description,consistency,createtime,vmname | Format-Table -autosize
 
 
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 write-output ">>> Starting vmotion virtual machine migration on $($src.HostNameOrIp)"
 write-output "  vm.count: $($vms.Count)"
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 
 $jobs = @()
 $command = { param($vmSrc, $vmDst, $vmName, $destDs)
@@ -168,22 +168,22 @@ $command = { param($vmSrc, $vmDst, $vmName, $destDs)
 $jobs = $vms | ForEach-Object { start-ThreadJob -name ($_.vmware.name+"-migrate-job") -scriptblock $command -ThrottleLimit 7 -ArgumentList $src, $dst, $_.vmware.name,$target_datastore}
 
 
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 write-output ">>> Wait for JOBS(RELOCATE_VM) started on $($src.HostNameOrIp)"
 write-output "  Started job.Count:[$($jobs.Count)] $($jobs[-1].name)"
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 $jobs | Format-Table -autosize
 $jobs | Receive-Job -wait
 
     
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 write-output ">>> Show tasks(RELOCATE_VM) on source $($src.HostNameOrIp):"
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 $tasks = Get-TintriTaskStatus -SearchAllTintriServers | Where {$_.Type -eq "RELOCATE_VM" } | sort-object -property LastUpdatedTime
 $tasks | Select-Object state,Type,JobDone,ProgressDescription,ProgressPercent -expand Uuid | select Type,JobDone,Uuid,ProgressDescription,ProgressPercent,State | Format-Table -autosize    
 
 
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 write-output ">>> Show start-VMMigration output captured in logs:"
-write-output "==========================================="
+write-output "--------------------------------------------------------------------------"
 Get-ChildItem $output_dir | Get-Content
